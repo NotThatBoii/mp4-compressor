@@ -80,6 +80,13 @@ class FFmpegTests(unittest.TestCase):
         self.assertEqual(output.video_codec, "h264")
         print(f"\nAuto selected {result.encoder}", flush=True)
 
+    def test_default_hevc_auto_and_hardware_target(self):
+        for mode in ("Balanced", "Target File Size"):
+            with self.subTest(mode=mode):
+                result, output, _ = self.encode(CompressionOptions(mode=mode, target_mb=1, resolution=(320, 180)))
+                self.assertEqual(output.video_codec, "hevc")
+                print(f"\nHEVC {mode}: {result.encoder}, {result.size / 1_000_000:.3f} MB", flush=True)
+
     def test_subtitle_preservation(self):
         subtitle = self.root / "captions.srt"
         subtitle.write_text("1\n00:00:00,000 --> 00:00:03,000\nHello Compressly\n", encoding="utf-8")
