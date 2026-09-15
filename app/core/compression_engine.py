@@ -12,6 +12,8 @@ import time
 
 from app.core.ffmpeg_manager import CREATE_FLAGS
 from app.utils.file_utils import output_path
+from app.core.bitrate_calculator import budget_for
+from app.core.media_probe import number
 
 CPU_ENCODERS = {"h264": "libx264", "hevc": "libx265", "av1": "libsvtav1"}
 CRF = {"h264": [19, 23, 27], "hevc": [22, 26, 30], "av1": [24, 32, 40]}
@@ -45,15 +47,31 @@ def video_filters(options):
 
 def build_commands(manager, media, options, encoder, destination):
     options.validate()
-    quality = CRF[options.codec][["High Quality", "Balanced", "Small File"].index(options.mode)]
+    target_mode = options.mode == "Target File Size"
     args = [manager.ffmpeg, "-hide_banner", "-y", "-loglevel", "warning", "-nostats",
             "-progress", "pipe:1", "-i", str(media.path), "-map", f"0:{media.video_index}",
             "-vf", video_filters(options), "-c:v", encoder, "-pix_fmt", "yuv420p",
-            "-preset", "6" if encoder == "libsvtav1" else "medium", "-crf", str(quality)]
+            "-preset", "6" if encoder == "libsvtav1" else "medium"]
+    if target_mode:
+        args += ["-b:v", str(budget_for(media, options).video_bps)]
+    else:
+        quality = CRF[options.codec][["High Quality", "Balanced", "Small File"].index(options.mode)]
+        args += ["-crf", str(quality)]
+    first_pass = None
+    if target_mode and encoder in ("libx264", "libx265"):
+        if encoder == "libx264":
+            first_pass = args + ["-pass", "1", "-passlogfile", "passlog"]
+            args += ["-pass", "2", "-passlogfile", "passlog"]
+        else:
+            # x265 owns its two-pass machinery. Relative stats path avoids Windows
+            # drive-letter escaping in the colon-delimited x265 parameter syntax.
+            first_pass = args + ["-x265-params", "pass=1:stats=passlog"]
+            args += ["-x265-params", "pass=2:stats=passlog"]
+        first_pass += ["-an", "-sn", "-map_metadata", "-1", "-map_chapters", "-1", "-f", "null", os.devnull]
     if media.audio and options.audio_kbps:
         args += ["-map", f"0:{media.audio['index']}"]
-        audio_rate = int(media.audio.get("bit_rate", 0) or 0)
-        if media.audio_codec == "aac" and 0 < audio_rate <= options.audio_kbps * 1000:
+        audio_rate = int(number(media.audio.get("bit_rate")))
+        if not target_mode and media.audio_codec == "aac" and 0 < audio_rate <= options.audio_kbps * 1000:
             args += ["-c:a", "copy"]
         else:
             args += ["-c:a", "aac", "-b:a", f"{options.audio_kbps}k"]
@@ -71,7 +89,8 @@ def build_commands(manager, media, options, encoder, destination):
         args += ["-movflags", "+faststart"]
         if options.codec == "hevc":
             args += ["-tag:v", "hvc1"]
-    return [args + [str(destination)]]
+    final = args + [str(destination)]
+    return [first_pass, final] if first_pass else [final]
 
 
 class CompressionEngine:
@@ -89,8 +108,9 @@ class CompressionEngine:
             raise ValueError("The output folder does not exist. Choose an existing writable folder.")
         if media.hdr:
             raise ValueError("HDR video is not supported in this MVP. Use an SDR source to avoid incorrect colors.")
-        if shutil.disk_usage(folder).free < 100_000_000:
-            raise ValueError("Not enough disk space. Free at least 100 MB before compressing.")
+        needed = int(options.target_mb * 1_000_000 * 1.1) if options.mode == "Target File Size" else 0
+        if shutil.disk_usage(folder).free < needed + 100_000_000:
+            raise ValueError("Not enough free disk space for the requested output and temporary processing. Choose another drive or free space.")
         suffix = ".mkv" if options.keep_subtitles and media.subtitles else ".mp4"
         started = time.monotonic()
         encoder = CPU_ENCODERS[options.codec]

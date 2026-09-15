@@ -14,6 +14,7 @@ from app.workers.task_worker import TaskWorker
 from app.utils.file_utils import format_size, format_time
 from app.core.models import CompressionOptions
 from app.workers.compression_worker import CompressionWorker
+from app.core.bitrate_calculator import budget_for
 
 
 class MainWindow(QMainWindow):
@@ -68,6 +69,11 @@ class MainWindow(QMainWindow):
         self.job = None
         self.start.clicked.connect(self.compress)
         self.cancel.clicked.connect(self.cancel_job)
+        for box in (self.settings.mode, self.settings.codec, self.settings.audio,
+                    self.settings.resolution, self.settings.fps, self.settings.subtitles):
+            box.currentIndexChanged.connect(self.update_estimate)
+        for box in (self.settings.target, self.settings.width, self.settings.height):
+            box.valueChanged.connect(self.update_estimate)
         self.drop.selected.connect(self.load_video)
         self.drop.rejected.connect(self.show_error)
         self.info.name.setTextFormat(Qt.PlainText)
@@ -111,7 +117,22 @@ class MainWindow(QMainWindow):
         self.info.details.setText(f"{format_size(media.size)}  •  {media.width} × {media.height}  •  {media.fps:.2f} FPS  •  {format_time(media.duration)}\nVideo: {media.video_codec}  •  Audio: {media.audio_codec}  •  {media.bitrate / 1000:,.0f} kbps")
         self.progress.status.setText("Video analyzed successfully")
         self.start.setEnabled(True)
-        self.settings.estimate.setText("Estimated Size: content-dependent; CRF output size cannot be predicted reliably.")
+        self.update_estimate()
+
+    def update_estimate(self):
+        if not self.media:
+            self.settings.estimate.setText("Estimated Size: select a video first")
+            return
+        try:
+            options = self.settings.options()
+            if options.mode == "Target File Size":
+                budget = budget_for(self.media, options)
+                note = " Quality warning: very low video bitrate." if budget.warning else ""
+                self.settings.estimate.setText(f"Estimated Size: approximately {options.target_mb:,.2f} MB • Video: {budget.video_bps / 1000:,.0f} kbps.{note}\nCPU H.264/H.265 use two passes. Hardware and AV1 use single-pass bitrate control; size can vary.")
+            else:
+                self.settings.estimate.setText("Estimated Size: cannot be predicted reliably for quality-based encoding. Content and encoder determine the result; output can be larger than the source.")
+        except ValueError as error:
+            self.settings.estimate.setText(str(error))
 
     def compress(self):
         if not self.media or (self.job and self.job.isRunning()):
@@ -119,7 +140,10 @@ class MainWindow(QMainWindow):
         try:
             options = self.settings.options()
             if options.mode == "Target File Size":
-                raise ValueError("Target-size encoding is being implemented in the next milestone.")
+                budget = budget_for(self.media, options)
+                if budget.warning and QMessageBox.question(self, "Low quality target", budget.warning,
+                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+                    return
         except ValueError as error:
             self.show_error(str(error))
             return
