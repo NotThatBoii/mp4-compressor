@@ -12,6 +12,8 @@ from app.core.ffmpeg_manager import FFmpegManager
 from app.core.media_probe import probe_media
 from app.workers.task_worker import TaskWorker
 from app.utils.file_utils import format_size, format_time
+from app.core.models import CompressionOptions
+from app.workers.compression_worker import CompressionWorker
 
 
 class MainWindow(QMainWindow):
@@ -63,6 +65,9 @@ class MainWindow(QMainWindow):
         self.manager = None
         self.media = None
         self.task = None
+        self.job = None
+        self.start.clicked.connect(self.compress)
+        self.cancel.clicked.connect(self.cancel_job)
         self.drop.selected.connect(self.load_video)
         self.drop.rejected.connect(self.show_error)
         self.info.name.setTextFormat(Qt.PlainText)
@@ -82,6 +87,7 @@ class MainWindow(QMainWindow):
 
     def task_finished(self):
         self.drop.setEnabled(self.manager is not None)
+        self.start.setEnabled(self.media is not None)
 
     def tools_ready(self, manager):
         self.manager = manager
@@ -104,12 +110,57 @@ class MainWindow(QMainWindow):
         self.info.name.setText(media.path.name)
         self.info.details.setText(f"{format_size(media.size)}  •  {media.width} × {media.height}  •  {media.fps:.2f} FPS  •  {format_time(media.duration)}\nVideo: {media.video_codec}  •  Audio: {media.audio_codec}  •  {media.bitrate / 1000:,.0f} kbps")
         self.progress.status.setText("Video analyzed successfully")
+        self.start.setEnabled(True)
+        self.settings.estimate.setText("Estimated Size: content-dependent; CRF output size cannot be predicted reliably.")
+
+    def compress(self):
+        if not self.media or (self.job and self.job.isRunning()):
+            return
+        options = CompressionOptions()
+        self.job = CompressionWorker(self.manager, self.media, options, self.folder.text(), self)
+        self.job.progress.connect(self.update_progress)
+        self.job.status.connect(self.progress.status.setText)
+        self.job.result.connect(self.completed)
+        self.job.error.connect(self.show_error)
+        self.job.cancelled.connect(lambda: self.progress.status.setText("Compression cancelled. Incomplete output removed."))
+        self.job.finished.connect(lambda: self.set_busy(False))
+        self.set_busy(True)
+        self.progress.bar.setValue(0)
+        self.job.start()
+
+    def set_busy(self, busy):
+        for widget in (self.drop, self.settings, self.folder, self.browse):
+            widget.setEnabled(not busy)
+        self.start.setEnabled(not busy and self.media is not None)
+        self.cancel.setEnabled(busy)
+
+    def cancel_job(self):
+        if self.job and self.job.isRunning():
+            self.job.cancel()
+            self.cancel.setEnabled(False)
+            self.progress.status.setText("Cancelling and cleaning up…")
+
+    def update_progress(self, data):
+        self.progress.bar.setValue(int(data["percent"]))
+        self.progress.stats.setText(f"FPS: {data['fps']}  •  Speed: {data['speed']}  •  Elapsed: {format_time(data['elapsed'])}  •  ETA: {format_time(data['eta'])}\nEncoded size: {format_size(data['size'])}")
+
+    def completed(self, result):
+        self.progress.bar.setValue(100)
+        saved = (1 - result.size / result.original_size) * 100
+        saving = f"Space saved: {saved:.1f}%" if saved >= 0 else f"Output is {-saved:.1f}% larger. Try Small File or Target File Size."
+        self.progress.status.setText(f"Complete — {result.path.name}\nOriginal: {format_size(result.original_size)}  •  Compressed: {format_size(result.size)}\n{saving}\nSaved to: {result.path}")
+        self.progress.stats.setText(f"Encoding time: {format_time(result.elapsed)}  •  Encoder: {result.encoder}")
 
     def show_error(self, message):
         self.progress.status.setText(message)
         QMessageBox.warning(self, "Compressly", message)
 
     def closeEvent(self, event):
+        if self.job and self.job.isRunning():
+            self.cancel_job()
+            self.progress.status.setText("Cancelling safely. Close the window again when cleanup finishes.")
+            event.ignore()
+            return
         if self.task and self.task.isRunning():
             self.progress.status.setText("Please wait for video analysis to finish before closing.")
             event.ignore()
