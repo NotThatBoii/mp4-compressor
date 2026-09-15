@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+logs/
+build/
+dist/
+resources/ffmpeg/*
+!resources/ffmpeg/README.md
+.pytest_cache/
+work/
