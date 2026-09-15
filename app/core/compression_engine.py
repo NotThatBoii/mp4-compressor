@@ -76,6 +76,10 @@ def build_commands(manager, media, options, encoder, destination):
         args += ["-an"]
     if options.keep_subtitles and media.subtitles:
         args += ["-map", "0:s?", "-c:s", "copy", "-map", "0:t?", "-c:t", "copy"]
+        # MP4 timed text is not supported in Matroska. Preserve its text as SRT.
+        for index, subtitle in enumerate(media.subtitles):
+            if subtitle.get("codec_name") == "mov_text":
+                args += [f"-c:s:{index}", "srt"]
     else:
         args += ["-sn"]
     args += ["-map_metadata", "0" if options.keep_metadata else "-1",
@@ -154,7 +158,7 @@ class CompressionEngine:
         if self.cancel_event.is_set():
             raise Cancelled()
         logging.info("Running FFmpeg: %r", args)
-        with (work / "ffmpeg-errors.log").open("w+", encoding="utf-8") as errors:
+        with (work / "ffmpeg-errors.log").open("w+b") as errors:
             process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                 stderr=errors, text=True, encoding="utf-8", errors="replace", bufsize=1,
                 cwd=work, creationflags=CREATE_FLAGS)
@@ -209,7 +213,7 @@ class CompressionEngine:
                 if code:
                     errors.flush()
                     errors.seek(max(0, errors.tell() - 16000))
-                    detail = errors.read()
+                    detail = errors.read().decode("utf-8", "replace")
                     logging.error("FFmpeg exit %s: %s", code, detail)
                     if "No space left" in detail:
                         raise ValueError("The output drive is full. Free some space and try again.")
@@ -220,4 +224,8 @@ class CompressionEngine:
                     process.wait()
                 reader.join(timeout=2)
                 process.stdout.close()
-                process.stdin.close()
+                try:
+                    process.stdin.close()
+                except OSError:
+                    # A stopped encoder can close its stdin before the quit request flushes.
+                    pass

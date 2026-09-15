@@ -13,6 +13,7 @@ QPushButton:pressed { background: #1b2941; }
 QPushButton#primary { background: #778fff; color: #0d1428; border: none; }
 QPushButton#primary:hover { background: #9baeff; }
 QPushButton:disabled { background: #222a3a; color: #69758d; border-color: #2a354b; }
+QPushButton#primary:disabled { background: #222a3a; color: #69758d; }
 QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit { background: #1b2435; border: 1px solid #35425c; border-radius: 6px; padding: 7px; min-height: 18px; }
 QComboBox:focus, QLineEdit:focus { border-color: #8ba3ff; }
 QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled { color: #626f89; }
@@ -21,4 +22,8 @@ QProgressBar { background: #202c41; border: none; border-radius: 7px; text-align
 QProgressBar::chunk { background: #607bdb; border-radius: 7px; }
 QScrollArea { border: none; }
 QCheckBox { padding: 6px 0; }
+QScrollBar:vertical { background: #10141e; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #35425c; min-height: 30px; border-radius: 5px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
 """

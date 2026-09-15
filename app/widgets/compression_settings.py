@@ -60,7 +60,7 @@ class CompressionSettings(QWidget):
         for label, widget in [("Resolution", self.resolution), ("Custom bounds", custom),
                 ("FPS", self.fps), ("Audio", self.audio), ("Metadata", self.metadata), ("Subtitles", self.subtitles)]:
             advanced.addRow(label, widget)
-        hint = QLabel("Resolution fits within the selected bounds, preserving aspect ratio.\nPreserving subtitles uses MKV to keep original subtitle tracks and fonts.")
+        hint = QLabel("Resolution fits within the bounds without upscaling; aspect ratio is preserved.\nPreserve subtitles uses MKV, copying tracks and fonts. MP4 timed text becomes SRT.\nOnly the first video and first audio track are kept. HDR sources are not supported yet.")
         hint.setWordWrap(True)
         hint.setObjectName("muted")
         advanced.addRow(hint)
