@@ -14,12 +14,14 @@ from app.core.ffmpeg_manager import CREATE_FLAGS
 from app.utils.file_utils import output_path
 from app.core.bitrate_calculator import budget_for
 from app.core.media_probe import number
-
-CPU_ENCODERS = {"h264": "libx264", "hevc": "libx265", "av1": "libsvtav1"}
-CRF = {"h264": [19, 23, 27], "hevc": [22, 26, 30], "av1": [24, 32, 40]}
+from app.core.encoder_detector import EncoderDetector, rate_control
 
 
 class Cancelled(Exception):
+    pass
+
+
+class EncoderFailure(ValueError):
     pass
 
 
@@ -50,13 +52,8 @@ def build_commands(manager, media, options, encoder, destination):
     target_mode = options.mode == "Target File Size"
     args = [manager.ffmpeg, "-hide_banner", "-y", "-loglevel", "warning", "-nostats",
             "-progress", "pipe:1", "-i", str(media.path), "-map", f"0:{media.video_index}",
-            "-vf", video_filters(options), "-c:v", encoder, "-pix_fmt", "yuv420p",
-            "-preset", "6" if encoder == "libsvtav1" else "medium"]
-    if target_mode:
-        args += ["-b:v", str(budget_for(media, options).video_bps)]
-    else:
-        quality = CRF[options.codec][["High Quality", "Balanced", "Small File"].index(options.mode)]
-        args += ["-crf", str(quality)]
+            "-vf", video_filters(options), "-c:v", encoder, "-pix_fmt", "yuv420p"]
+    args += rate_control(options, encoder, budget_for(media, options).video_bps if target_mode else None)
     first_pass = None
     if target_mode and encoder in ("libx264", "libx265"):
         if encoder == "libx264":
@@ -97,6 +94,9 @@ class CompressionEngine:
     def __init__(self, manager):
         self.manager = manager
         self.cancel_event = Event()
+        if not hasattr(manager, "encoder_detector"):
+            manager.encoder_detector = EncoderDetector(manager)
+        self.detector = manager.encoder_detector
 
     def cancel(self):
         self.cancel_event.set()
@@ -113,14 +113,23 @@ class CompressionEngine:
             raise ValueError("Not enough free disk space for the requested output and temporary processing. Choose another drive or free space.")
         suffix = ".mkv" if options.keep_subtitles and media.subtitles else ".mp4"
         started = time.monotonic()
-        encoder = CPU_ENCODERS[options.codec]
+        encoder = self.detector.choose(options, self.cancel_event, status)
         # Private temporary directory on the destination volume; originals are never opened for writing.
         with tempfile.TemporaryDirectory(prefix=".compressly-", dir=folder) as work:
             temp = Path(work) / ("encoded" + suffix)
-            commands = build_commands(self.manager, media, options, encoder, temp)
-            for index, args in enumerate(commands):
-                status(f"Compressing with {encoder} — pass {index + 1}/{len(commands)}")
-                self._execute(args, Path(work), media.duration, index, len(commands), started, progress)
+            while True:
+                commands = build_commands(self.manager, media, options, encoder, temp)
+                try:
+                    for index, args in enumerate(commands):
+                        status(f"Compressing with {encoder} — pass {index + 1}/{len(commands)}")
+                        self._execute(args, Path(work), media.duration, index, len(commands), started, progress)
+                    break
+                except EncoderFailure:
+                    if encoder.startswith("lib"):
+                        raise
+                    logging.warning("Hardware job failed; retrying on CPU")
+                    status("Hardware could not encode this video. Restarting with CPU…")
+                    encoder = self.detector.cpu(options.codec)
             if self.cancel_event.is_set():
                 raise Cancelled()
             if not temp.is_file() or temp.stat().st_size == 0:
@@ -182,6 +191,8 @@ class CompressionEngine:
                     if separator:
                         data[key] = value
                     if key == "progress":
+                        if shutil.disk_usage(work).free < 10_000_000:
+                            raise ValueError("The output drive is nearly full. Compression stopped and temporary output will be removed.")
                         elapsed = time.monotonic() - started
                         try:
                             encoded = max(0.0, float(data.get("out_time_us", 0)) / 1_000_000)
@@ -202,7 +213,7 @@ class CompressionEngine:
                     logging.error("FFmpeg exit %s: %s", code, detail)
                     if "No space left" in detail:
                         raise ValueError("The output drive is full. Free some space and try again.")
-                    raise ValueError("FFmpeg could not compress this video. Try CPU encoding or another codec. Technical details are in logs/compressly.log.")
+                    raise EncoderFailure("FFmpeg could not compress this video. Try CPU encoding or another codec. Technical details are in logs/compressly.log.")
             finally:
                 if process.poll() is None:
                     process.kill()
