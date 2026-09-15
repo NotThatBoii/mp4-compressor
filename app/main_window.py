@@ -6,6 +6,12 @@ from app.widgets.drop_zone import DropZone
 from app.widgets.file_info import FileInfo
 from app.widgets.compression_settings import CompressionSettings
 from app.widgets.progress_widget import ProgressWidget
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtWidgets import QMessageBox
+from app.core.ffmpeg_manager import FFmpegManager
+from app.core.media_probe import probe_media
+from app.workers.task_worker import TaskWorker
+from app.utils.file_utils import format_size, format_time
 
 
 class MainWindow(QMainWindow):
@@ -54,6 +60,61 @@ class MainWindow(QMainWindow):
         layout.addStretch()
         scroll.setWidget(body)
         self.setCentralWidget(scroll)
+        self.manager = None
+        self.media = None
+        self.task = None
+        self.drop.selected.connect(self.load_video)
+        self.drop.rejected.connect(self.show_error)
+        self.info.name.setTextFormat(Qt.PlainText)
+        self.drop.setEnabled(False)
+        self.progress.status.setText("Checking FFmpeg…")
+        QTimer.singleShot(0, self.initialize)
+
+    def initialize(self):
+        self.run_task(FFmpegManager, self.tools_ready)
+
+    def run_task(self, function, callback):
+        self.task = TaskWorker(function, self)
+        self.task.result.connect(callback)
+        self.task.error.connect(self.show_error)
+        self.task.finished.connect(self.task_finished)
+        self.task.start()
+
+    def task_finished(self):
+        self.drop.setEnabled(self.manager is not None)
+
+    def tools_ready(self, manager):
+        self.manager = manager
+        self.progress.status.setText("Ready — select a video to begin")
+
+    def load_video(self, name):
+        if self.task and self.task.isRunning():
+            return
+        self.media = None
+        self.drop.setEnabled(False)
+        self.start.setEnabled(False)
+        self.info.name.setText(Path(name).name)
+        self.info.details.setText("Reading video information…")
+        self.progress.status.setText("Analyzing video…")
+        self.run_task(lambda: probe_media(self.manager, name), self.video_ready)
+
+    def video_ready(self, media):
+        self.media = media
+        self.folder.setText(str(media.path.parent))
+        self.info.name.setText(media.path.name)
+        self.info.details.setText(f"{format_size(media.size)}  •  {media.width} × {media.height}  •  {media.fps:.2f} FPS  •  {format_time(media.duration)}\nVideo: {media.video_codec}  •  Audio: {media.audio_codec}  •  {media.bitrate / 1000:,.0f} kbps")
+        self.progress.status.setText("Video analyzed successfully")
+
+    def show_error(self, message):
+        self.progress.status.setText(message)
+        QMessageBox.warning(self, "Compressly", message)
+
+    def closeEvent(self, event):
+        if self.task and self.task.isRunning():
+            self.progress.status.setText("Please wait for video analysis to finish before closing.")
+            event.ignore()
+            return
+        event.accept()
 
     def choose_folder(self):
         name = QFileDialog.getExistingDirectory(self, "Output folder", self.folder.text())
