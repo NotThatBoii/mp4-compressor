@@ -51,7 +51,12 @@ def build_commands(manager, media, options, encoder, destination):
             "-vf", video_filters(options), "-c:v", encoder, "-pix_fmt", "yuv420p",
             "-preset", "6" if encoder == "libsvtav1" else "medium", "-crf", str(quality)]
     if media.audio and options.audio_kbps:
-        args += ["-map", f"0:{media.audio['index']}", "-c:a", "aac", "-b:a", f"{options.audio_kbps}k"]
+        args += ["-map", f"0:{media.audio['index']}"]
+        audio_rate = int(media.audio.get("bit_rate", 0) or 0)
+        if media.audio_codec == "aac" and 0 < audio_rate <= options.audio_kbps * 1000:
+            args += ["-c:a", "copy"]
+        else:
+            args += ["-c:a", "aac", "-b:a", f"{options.audio_kbps}k"]
     else:
         args += ["-an"]
     if options.keep_subtitles and media.subtitles:

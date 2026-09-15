@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox, QFormLayout,
     QComboBox, QDoubleSpinBox, QSpinBox, QHBoxLayout, QLabel, QCheckBox)
+from app.core.models import CompressionOptions
 
 
 def combo(items, selected=0):
@@ -69,3 +70,15 @@ class CompressionSettings(QWidget):
         self.estimate = QLabel("Estimated Size: select a video first")
         self.estimate.setWordWrap(True)
         layout.addWidget(self.estimate)
+
+    def options(self):
+        sizes = [None, (3840, 2160), (2560, 1440), (1920, 1080), (1280, 720), (self.width.value(), self.height.value())]
+        result = CompressionOptions(mode=self.mode.currentText(), codec=["h264", "hevc", "av1"][self.codec.currentIndex()],
+            encoder=self.encoder.currentText(), target_mb=self.target.value(),
+            resolution=sizes[self.resolution.currentIndex()],
+            fps=None if self.fps.currentIndex() == 0 else int(self.fps.currentText()),
+            audio_kbps=[320, 256, 192, 128, 96, 0][self.audio.currentIndex()],
+            keep_metadata=self.metadata.currentIndex() == 0,
+            keep_subtitles=self.subtitles.currentIndex() == 1)
+        result.validate()
+        return result

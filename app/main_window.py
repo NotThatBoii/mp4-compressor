@@ -116,7 +116,13 @@ class MainWindow(QMainWindow):
     def compress(self):
         if not self.media or (self.job and self.job.isRunning()):
             return
-        options = CompressionOptions()
+        try:
+            options = self.settings.options()
+            if options.mode == "Target File Size":
+                raise ValueError("Target-size encoding is being implemented in the next milestone.")
+        except ValueError as error:
+            self.show_error(str(error))
+            return
         self.job = CompressionWorker(self.manager, self.media, options, self.folder.text(), self)
         self.job.progress.connect(self.update_progress)
         self.job.status.connect(self.progress.status.setText)
