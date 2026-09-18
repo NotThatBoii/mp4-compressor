@@ -13,7 +13,7 @@ if not exist "resources\ffmpeg\ffprobe.exe" (
     echo Missing resources\ffmpeg\ffprobe.exe. See README.md.
     exit /b 1
 )
-".venv\Scripts\python.exe" -m pip install -r requirements.txt "pyinstaller>=6.11,<7"
+".venv\Scripts\python.exe" -m pip install -r requirements-build.txt
 if errorlevel 1 exit /b 1
 ".venv\Scripts\python.exe" -m PyInstaller --clean --noconfirm Compressly.spec
 if errorlevel 1 exit /b 1

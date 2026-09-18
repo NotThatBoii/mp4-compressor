@@ -1,0 +1,62 @@
+name: Windows installer release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [VERSION, '.github/workflows/release.yml']
+permissions:
+  contents: write
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned build dependencies
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
+      - name: Download verified FFmpeg
+        run: .\.venv\Scripts\python.exe scripts/fetch-ffmpeg.py
+      - name: Run real compression and GUI tests
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+        env:
+          COMPRESSLY_INTEGRATION: '1'
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          }
+          ./scripts/build-installer.ps1 -Compiler $compiler
+      - name: Test installation and uninstallation
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          ./scripts/test-installer.ps1 -Installer "dist/installer/Compressly-$version-Setup-x64.exe"
+      - name: Preserve installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Compressly-Windows-installer
+          path: dist/installer/*
+      - name: Publish tested installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          $tag = "v$version"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; increment VERSION before publishing again." }
+          gh release create $tag "dist/installer/Compressly-$version-Setup-x64.exe" "dist/installer/SHA256SUMS.txt" --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Compressly $version — Windows installer" --notes-file installer/release-notes.md --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

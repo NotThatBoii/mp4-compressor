@@ -2,6 +2,16 @@
 
 A Windows 10/11 desktop video compressor built with Python, PySide6 and real FFmpeg processing. Drop a video, choose a quality preset or target size, and save a smaller copy. The original stays untouched.
 
+## Download and install
+
+**[Download the Windows installer](https://github.com/NotThatBoii/mp4-compressor/releases/latest)** — choose `Compressly-0.1.0-Setup-x64.exe` under Assets.
+
+Run the downloaded EXE and follow Setup. Python and FFmpeg are included, and the installed app works offline. It installs for your Windows account without an administrator password, adds a Start menu entry, and optionally creates a desktop shortcut. Uninstall through **Windows Settings → Apps → Compressly**. Your video files are preserved.
+
+Requires **64-bit Intel/AMD Windows 10 version 1809 or newer, or Windows 11**. ARM and 32-bit Windows are not validated. GPU drivers are optional: unsupported hardware falls back to CPU.
+
+The first installer is unsigned, so Windows may display SmartScreen or Unknown Publisher. Download only from this repository's Releases page. Each release includes `SHA256SUMS.txt`; compare it with `Get-FileHash .\Compressly-0.1.0-Setup-x64.exe -Algorithm SHA256` if you want to verify the file.
+
 ## Features
 
 - Dark desktop interface with drag and drop, file selection, video information and an output folder picker.
@@ -14,7 +24,7 @@ A Windows 10/11 desktop video compressor built with Python, PySide6 and real FFm
 
 Supported input extensions: `.mp4`, `.mkv`, `.mov`, `.avi`, `.webm`, `.m4v`. Actual decoding support depends on your FFmpeg build.
 
-## Install and launch on Windows
+## Run from source on Windows (developers)
 
 1. Install **64-bit CPython 3.10 or newer** from [python.org](https://www.python.org/downloads/windows/). Python 3.12 is a good development choice. Enable the Python launcher during installation. Use Windows CPython, not MSYS2 Python.
 2. Open PowerShell and run:
@@ -145,6 +155,24 @@ $check.ExitCode  # 0 means startup passed
 ```
 
 Distribute the **entire `dist/Compressly` folder**, usually as a ZIP. This is a one-folder portable build: users do not need Python or FFmpeg separately. Copying just the EXE is insufficient. The build is not signed and Windows may show a reputation prompt. Check FFmpeg and Qt/PySide redistribution obligations before public distribution; no binary license is supplied by this repository on their behalf.
+
+### Build the installable Setup EXE
+
+Install [Inno Setup 6](https://jrsoftware.org/isdl.php), create `.venv` as above, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+.\.venv\Scripts\python.exe scripts/fetch-ffmpeg.py
+.\scripts\build-installer.ps1
+```
+
+The FFmpeg download uses a pinned version and SHA-256 check. The output is `dist/installer/Compressly-0.1.0-Setup-x64.exe`, with `SHA256SUMS.txt`. Unlike the portable EXE, this **single Setup EXE** contains the complete application and its dependencies. Bundled license texts and notices are installed with the app.
+
+Pass `-Compiler 'C:\path\to\ISCC.exe'` for a custom compiler location or `-SkipAppBuild` to package an already-built app. Close running Compressly instances before updating; Setup does not force-stop compression jobs.
+
+### Publish a release
+
+Update `VERSION` and `installer/release-notes.md`, commit the change, and push to `main`. The Windows release workflow builds the installer, runs real FFmpeg/GUI tests, installs it in a fresh directory, checks packaged startup, reinstalls it, and verifies uninstall preserves a user-created file. Only then does it create a versioned GitHub Release and upload the installer and checksum. Existing versions are never silently replaced; increment `VERSION` for another release. The workflow can also be started manually from GitHub Actions.
 
 ## Project layout
 
