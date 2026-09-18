@@ -15,6 +15,7 @@ shutil.copy2(Path(sys.base_prefix) / 'LICENSE.txt', licenses / 'Python-LICENSE.t
 for source in (root / 'resources/licenses').glob('*.txt'):
     shutil.copy2(source, licenses / source.name)
 shutil.copy2(root / 'THIRD_PARTY.md', payload / 'THIRD_PARTY.md')
+shutil.copy2(root / 'LICENSE', payload / 'LICENSE')
 shutil.copy2(root / 'installer/install-info.txt', payload / 'README.txt')
 shutil.copy2(root / 'VERSION', payload / 'VERSION')
 print('Distribution payload and licenses prepared.')

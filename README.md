@@ -1,5 +1,7 @@
 # COMPRESSLY
 
+Created by [NotThatBoii](https://github.com/NotThatBoii) · [MIT License](LICENSE)
+
 A Windows 10/11 desktop video compressor built with Python, PySide6 and real FFmpeg processing. Drop a video, choose a quality preset or target size, and save a smaller copy. The original stays untouched.
 
 ## Download and install
@@ -23,6 +25,12 @@ The first installer is unsigned, so Windows may display SmartScreen or Unknown P
 - Unique output names, temporary-file cleanup, final size and space saved, and an Open Output Folder button.
 
 Supported input extensions: `.mp4`, `.mkv`, `.mov`, `.avi`, `.webm`, `.m4v`. Actual decoding support depends on your FFmpeg build.
+
+## License
+
+Compressly's original application code is licensed under the **MIT License**, copyright (c) 2026 **NotThatBoii**. See [LICENSE](LICENSE) for the full terms.
+
+Bundled Python, Qt/PySide, FFmpeg and installer components retain their own licenses; the MIT license does not relicense those components. See [THIRD_PARTY.md](THIRD_PARTY.md) and the installed `licenses` folder. The installer displays Compressly's license and includes a copy in the application folder.
 
 ## Run from source on Windows (developers)
 

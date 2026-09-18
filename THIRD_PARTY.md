@@ -1,5 +1,7 @@
 # Third-party components
 
+Compressly's own code is MIT-licensed, copyright (c) 2026 NotThatBoii; see LICENSE. That license applies only to original Compressly code. The components listed below retain their respective upstream licenses.
+
 The installer bundles unmodified, dynamically loaded Python/Qt libraries and separate FFmpeg command-line executables. The `licenses` directory contains license texts. The app does not restrict replacing the bundled libraries or reverse engineering for debugging modifications to LGPL components.
 
 - **CPython 3.12**: Python Software Foundation license; [source and license](https://www.python.org/downloads/source/).
