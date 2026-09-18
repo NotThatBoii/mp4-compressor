@@ -1,5 +1,11 @@
 COMPRESSLY
 
+Created by NotThatBoii
+GitHub: https://github.com/NotThatBoii
+Project: https://github.com/NotThatBoii/mp4-compressor
+Copyright (c) 2026 NotThatBoii. Compressly's original code is MIT-licensed.
+Bundled components retain their own licenses; see THIRD_PARTY.md and the licenses folder.
+
 Compress videos on Windows 10/11 (64-bit Intel or AMD laptops).
 
 Python, Qt and FFmpeg are included. No additional downloads or software setup are required to use the installed app.
@@ -8,6 +14,6 @@ Setup installs for your Windows account and adds a Start menu shortcut. You can 
 
 Close Compressly before installing an update. This installer will not forcibly terminate an active compression job.
 
-This first release is unsigned. Windows may show an Unknown Publisher or SmartScreen notice. Only install files downloaded from the project's GitHub Releases page.
+This release is unsigned. Windows may show an Unknown Publisher or SmartScreen notice. Only install files downloaded from the project's GitHub Releases page.
 
 Known limits: one video at a time, no HDR conversion, no pause. CPU AV1 requires an FFmpeg build containing SVT-AV1; the included essentials build supports CPU H.264 and H.265. Hardware encoders depend on your laptop and drivers.

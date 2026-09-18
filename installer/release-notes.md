@@ -1,6 +1,12 @@
 ## Install Compressly on Windows
 
-Download **Compressly-0.1.0-Setup-x64.exe** below and run it. Setup installs Compressly for your Windows account and adds a Start menu shortcut. Python and FFmpeg are included; no separate installation is needed.
+Download **Compressly-0.1.1-Setup-x64.exe** below and run it. Setup installs Compressly for your Windows account and adds a Start menu shortcut. Python and FFmpeg are included; no separate installation is needed.
+
+### New in 0.1.1
+
+- MIT license for Compressly's original code, copyright (c) 2026 **NotThatBoii**.
+- **Created by NotThatBoii** on the installer's welcome and information pages, plus creator attribution in its title, publisher and EXE properties.
+- License agreement page and installed LICENSE file; bundled components keep their existing licenses.
 
 **Supported:** Windows 10 version 1809 or newer / Windows 11, 64-bit Intel or AMD laptops. ARM and 32-bit Windows are not validated for this release.
 

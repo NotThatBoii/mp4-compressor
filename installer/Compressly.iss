@@ -9,7 +9,8 @@ AppId={{CF56931D-AB1A-4600-9A60-E42873E91398}
 AppName=Compressly
 AppVersion={#MyAppVersion}
 AppPublisher=NotThatBoii
-AppPublisherURL=https://github.com/NotThatBoii/mp4-compressor
+AppPublisherURL=https://github.com/NotThatBoii
+AppCopyright=Copyright (c) 2026 NotThatBoii
 AppSupportURL=https://github.com/NotThatBoii/mp4-compressor/issues
 AppUpdatesURL=https://github.com/NotThatBoii/mp4-compressor/releases
 DefaultDirName={localappdata}\Programs\Compressly
@@ -24,12 +25,21 @@ OutputBaseFilename=Compressly-{#MyAppVersion}-Setup-x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+DisableWelcomePage=no
+LicenseFile=..\LICENSE
 UninstallDisplayIcon={app}\Compressly.exe
 CloseApplications=no
 RestartApplications=no
 SetupLogging=yes
 VersionInfoVersion={#MyAppVersion}.0
+VersionInfoCompany=NotThatBoii
+VersionInfoDescription=Compressly Setup by NotThatBoii
 InfoBeforeFile=install-info.txt
+
+[Messages]
+SetupWindowTitle=Compressly by NotThatBoii
+WelcomeLabel1=Welcome to Compressly
+WelcomeLabel2=Created by NotThatBoii%nhttps://github.com/NotThatBoii%n%nThis wizard will install Compressly on your computer.%n%nCompressly's original code is licensed under the MIT License. Bundled components retain their own licenses.
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked

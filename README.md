@@ -6,13 +6,13 @@ A Windows 10/11 desktop video compressor built with Python, PySide6 and real FFm
 
 ## Download and install
 
-**[Download the Windows installer](https://github.com/NotThatBoii/mp4-compressor/releases/latest)** — choose `Compressly-0.1.0-Setup-x64.exe` under Assets.
+**[Download the Windows installer](https://github.com/NotThatBoii/mp4-compressor/releases/latest)** — choose `Compressly-0.1.1-Setup-x64.exe` under Assets.
 
 Run the downloaded EXE and follow Setup. Python and FFmpeg are included, and the installed app works offline. It installs for your Windows account without an administrator password, adds a Start menu entry, and optionally creates a desktop shortcut. Uninstall through **Windows Settings → Apps → Compressly**. Your video files are preserved.
 
 Requires **64-bit Intel/AMD Windows 10 version 1809 or newer, or Windows 11**. ARM and 32-bit Windows are not validated. GPU drivers are optional: unsupported hardware falls back to CPU.
 
-The first installer is unsigned, so Windows may display SmartScreen or Unknown Publisher. Download only from this repository's Releases page. Each release includes `SHA256SUMS.txt`; compare it with `Get-FileHash .\Compressly-0.1.0-Setup-x64.exe -Algorithm SHA256` if you want to verify the file.
+The first installer is unsigned, so Windows may display SmartScreen or Unknown Publisher. Download only from this repository's Releases page. Each release includes `SHA256SUMS.txt`; compare it with `Get-FileHash .\Compressly-0.1.1-Setup-x64.exe -Algorithm SHA256` if you want to verify the file.
 
 ## Features
 
@@ -174,7 +174,7 @@ Install [Inno Setup 6](https://jrsoftware.org/isdl.php), create `.venv` as above
 .\scripts\build-installer.ps1
 ```
 
-The FFmpeg download uses a pinned version and SHA-256 check. The output is `dist/installer/Compressly-0.1.0-Setup-x64.exe`, with `SHA256SUMS.txt`. Unlike the portable EXE, this **single Setup EXE** contains the complete application and its dependencies. Bundled license texts and notices are installed with the app.
+The FFmpeg download uses a pinned version and SHA-256 check. The output is `dist/installer/Compressly-0.1.1-Setup-x64.exe`, with `SHA256SUMS.txt`. Unlike the portable EXE, this **single Setup EXE** contains the complete application and its dependencies. Bundled license texts and notices are installed with the app.
 
 Pass `-Compiler 'C:\path\to\ISCC.exe'` for a custom compiler location or `-SkipAppBuild` to package an already-built app. Close running Compressly instances before updating; Setup does not force-stop compression jobs.
 
