@@ -17,12 +17,12 @@ def format_time(seconds):
     return f"{hours:02}:{minutes:02}:{seconds:02}" if hours else f"{minutes:02}:{seconds:02}"
 
 
-def output_path(source, folder, suffix=".mp4"):
+def output_path(source, folder, suffix=".mp4", label="compressed"):
     source, folder = Path(source).resolve(), Path(folder).resolve()
     index = 1
     while True:
         ending = "" if index == 1 else f"_{index}"
-        candidate = folder / f"{source.stem}_compressed{ending}{suffix}"
+        candidate = folder / f"{source.stem}_{label}{ending}{suffix}"
         if not candidate.exists() and candidate != source:
             return candidate
         index += 1

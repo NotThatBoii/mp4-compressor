@@ -15,6 +15,7 @@ from app.utils.file_utils import output_path
 from app.core.bitrate_calculator import budget_for
 from app.core.media_probe import number
 from app.core.encoder_detector import EncoderDetector, rate_control
+from app.core.conversion import ConversionOptions, plan_conversion, build_conversion_command
 
 
 class Cancelled(Exception):
@@ -32,6 +33,7 @@ class CompressionResult:
     size: int
     elapsed: float
     encoder: str
+    operation: str = "compression"
 
 
 def video_filters(options):
@@ -107,6 +109,7 @@ class CompressionEngine:
 
     def run(self, media, options, folder, progress=lambda data: None, status=lambda message: None):
         options.validate()
+        converting = isinstance(options, ConversionOptions)
         folder = Path(folder).expanduser().resolve()
         if not folder.is_dir():
             raise ValueError("The output folder does not exist. Choose an existing writable folder.")
@@ -115,20 +118,31 @@ class CompressionEngine:
         needed = int(options.target_mb * 1_000_000 * 1.1) if options.mode == "Target File Size" else 0
         if shutil.disk_usage(folder).free < needed + 100_000_000:
             raise ValueError("Not enough free disk space for the requested output and temporary processing. Choose another drive or free space.")
-        suffix = ".mkv" if options.keep_subtitles and media.subtitles else ".mp4"
+        suffix = "." + options.output_format if converting else ".mkv" if options.keep_subtitles and media.subtitles else ".mp4"
+        label = "converted" if converting else "compressed"
         started = time.monotonic()
-        encoder = self.detector.choose(options, self.cancel_event, status)
+        plan = plan_conversion(media, options) if converting else None
+        encoder = plan.description if converting else self.detector.choose(options, self.cancel_event, status)
         # Private temporary directory on the destination volume; originals are never opened for writing.
         with tempfile.TemporaryDirectory(prefix=".compressly-", dir=folder) as work:
             temp = Path(work) / ("encoded" + suffix)
             while True:
-                commands = build_commands(self.manager, media, options, encoder, temp)
+                commands = [build_conversion_command(self.manager, media, options, plan, temp)] if converting else build_commands(self.manager, media, options, encoder, temp)
+                if converting and plan.video_encoder != "copy" and plan.video_encoder not in self.detector.available():
+                    raise ValueError(f"This FFmpeg build lacks {plan.video_encoder}. Choose a different format or install a full FFmpeg build.")
                 try:
                     for index, args in enumerate(commands):
-                        status(f"Compressing with {encoder} — pass {index + 1}/{len(commands)}")
+                        status(f"Converting to {options.output_format.upper()} — {plan.description}" if converting else f"Compressing with {encoder} — pass {index + 1}/{len(commands)}")
                         self._execute(args, Path(work), media.duration, index, len(commands), started, progress)
                     break
                 except EncoderFailure:
+                    if converting:
+                        if options.method == "Auto" and plan.has_copy:
+                            status("The source streams could not be copied into this format. Restarting with re-encoding…")
+                            plan = plan_conversion(media, options, force_encode=True)
+                            encoder = plan.description
+                            continue
+                        raise
                     if encoder.startswith("lib"):
                         raise
                     logging.warning("Hardware job failed; retrying on CPU")
@@ -138,7 +152,7 @@ class CompressionEngine:
                 raise Cancelled()
             if not temp.is_file() or temp.stat().st_size == 0:
                 raise ValueError("FFmpeg did not produce a valid output file.")
-            final = output_path(media.path, folder, suffix)
+            final = output_path(media.path, folder, suffix, label)
             # Reserve the final name atomically, including when multiple app instances run.
             while True:
                 try:
@@ -146,13 +160,13 @@ class CompressionEngine:
                         pass
                     break
                 except FileExistsError:
-                    final = output_path(media.path, folder, suffix)
+                    final = output_path(media.path, folder, suffix, label)
             try:
                 os.replace(temp, final)
             except OSError:
                 final.unlink(missing_ok=True)
                 raise
-            return CompressionResult(final, media.size, final.stat().st_size, time.monotonic() - started, encoder)
+            return CompressionResult(final, media.size, final.stat().st_size, time.monotonic() - started, encoder, "conversion" if converting else "compression")
 
     def _execute(self, args, work, duration, pass_index, pass_count, started, progress):
         if self.cancel_event.is_set():
@@ -196,7 +210,7 @@ class CompressionEngine:
                         data[key] = value
                     if key == "progress":
                         if shutil.disk_usage(work).free < 10_000_000:
-                            raise ValueError("The output drive is nearly full. Compression stopped and temporary output will be removed.")
+                            raise ValueError("The output drive is nearly full. Processing stopped and temporary output will be removed.")
                         elapsed = time.monotonic() - started
                         try:
                             encoded = max(0.0, float(data.get("out_time_us", 0)) / 1_000_000)
@@ -217,7 +231,7 @@ class CompressionEngine:
                     logging.error("FFmpeg exit %s: %s", code, detail)
                     if "No space left" in detail:
                         raise ValueError("The output drive is full. Free some space and try again.")
-                    raise EncoderFailure("FFmpeg could not compress this video. Try CPU encoding or another codec. Technical details are in logs/compressly.log.")
+                    raise EncoderFailure("FFmpeg could not process this video. Try re-encoding, another output format, or CPU compression. Technical details are in logs/compressly.log.")
             finally:
                 if process.poll() is None:
                     process.kill()
