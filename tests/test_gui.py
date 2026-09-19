@@ -109,7 +109,7 @@ class GuiTests(unittest.TestCase):
         shutil.copyfile(self.source, unusual)
         self.window.drop.accept_path(str(unusual))
         self.wait_for(lambda: self.window.task is None and self.window.media is not None)
-        self.assertEqual(self.window.media.path, unusual)
+        self.assertTrue(self.window.media.path.samefile(unusual))
         box = self.window.conversion.format
         box.setCurrentIndex(box.findData("mkv"))
         self.window.conversion.subtitles.setChecked(True)

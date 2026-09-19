@@ -26,7 +26,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
       - name: Download verified FFmpeg
         run: .\.venv\Scripts\python.exe scripts/fetch-ffmpeg.py
-      - name: Run real compression and GUI tests
+      - name: Run real compression, conversion and GUI tests
         run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
         env:
           COMPRESSLY_INTEGRATION: '1'
