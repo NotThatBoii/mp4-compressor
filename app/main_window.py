@@ -1,10 +1,12 @@
 from pathlib import Path
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QLabel,
-    QScrollArea, QHBoxLayout, QLineEdit, QPushButton, QFileDialog)
+    QScrollArea, QHBoxLayout, QLineEdit, QPushButton, QFileDialog, QComboBox)
 from app.theme import STYLE
 from app.widgets.drop_zone import DropZone
 from app.widgets.file_info import FileInfo
 from app.widgets.compression_settings import CompressionSettings
+from app.widgets.conversion_settings import ConversionSettings
+from app.core.conversion import plan_conversion
 from app.widgets.progress_widget import ProgressWidget
 from PySide6.QtCore import QTimer, Qt, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -20,12 +22,13 @@ from app.core.bitrate_calculator import budget_for
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Compressly — Video Compression")
+        self.setWindowTitle("Compressly — Video Compression & Conversion")
         screen_height = self.screen().availableGeometry().height()
         self.resize(820, min(900, screen_height - 80))
         self.setMinimumSize(660, 600)
         self.setStyleSheet(STYLE)
         scroll = QScrollArea()
+        self.scroll = scroll
         scroll.setWidgetResizable(True)
         body = QWidget()
         layout = QVBoxLayout(body)
@@ -40,7 +43,12 @@ class MainWindow(QMainWindow):
         self.drop = DropZone()
         self.info = FileInfo()
         self.settings = CompressionSettings()
-        for widget in [self.drop, self.info, self.settings]:
+        self.operation = QComboBox()
+        self.operation.addItems(["Compress", "Convert"])
+        self.operation.setAccessibleName("Video operation")
+        self.conversion = ConversionSettings()
+        self.conversion.hide()
+        for widget in [self.drop, self.info, self.operation, self.settings, self.conversion]:
             layout.addWidget(widget)
         footer = QWidget()
         footer_layout = QVBoxLayout(footer)
@@ -86,6 +94,8 @@ class MainWindow(QMainWindow):
         self.close_requested = False
         self.start.clicked.connect(self.compress)
         self.cancel.clicked.connect(self.cancel_job)
+        self.operation.currentIndexChanged.connect(self.operation_changed)
+        self.conversion.changed.connect(self.update_estimate)
         for box in (self.settings.mode, self.settings.codec, self.settings.audio,
                     self.settings.resolution, self.settings.fps, self.settings.subtitles):
             box.currentIndexChanged.connect(self.update_estimate)
@@ -148,6 +158,14 @@ class MainWindow(QMainWindow):
     def update_estimate(self):
         if not self.media:
             self.settings.estimate.setText("Estimated Size: select a video first")
+            self.conversion.plan.setText("Select a video to see the conversion plan.")
+            return
+        if self.operation.currentIndex() == 1:
+            try:
+                plan = plan_conversion(self.media, self.conversion.options())
+                self.conversion.plan.setText(plan.description + "\nConversion changes the file format; it does not target a smaller file size.")
+            except ValueError as error:
+                self.conversion.plan.setText(str(error))
             return
         try:
             options = self.settings.options()
@@ -160,11 +178,22 @@ class MainWindow(QMainWindow):
         except ValueError as error:
             self.settings.estimate.setText(str(error))
 
+    def operation_changed(self):
+        converting = self.operation.currentIndex() == 1
+        self.settings.setVisible(not converting)
+        self.conversion.setVisible(converting)
+        self.start.setText("Convert Video" if converting else "Compress Video")
+        self.update_estimate()
+        if converting:
+            QTimer.singleShot(0, lambda: self.scroll.ensureWidgetVisible(self.conversion))
+
     def compress(self):
         if not self.media or (self.job and self.job.isRunning()):
             return
         try:
-            options = self.settings.options()
+            options = self.conversion.options() if self.operation.currentIndex() == 1 else self.settings.options()
+            if options.mode == "Conversion":
+                plan_conversion(self.media, options)
             if options.mode == "Target File Size":
                 budget = budget_for(self.media, options)
                 if budget.warning and QMessageBox.question(self, "Low quality target", budget.warning,
@@ -178,12 +207,12 @@ class MainWindow(QMainWindow):
         self.job.status.connect(self.progress.status.setText)
         self.job.result.connect(self.completed)
         self.job.error.connect(self.show_error)
-        self.job.cancelled.connect(lambda: self.progress.status.setText("Compression cancelled. Incomplete output removed."))
+        self.job.cancelled.connect(lambda: self.progress.status.setText("Operation cancelled. Incomplete output removed."))
         self.job.finished.connect(self.job_finished)
         self.set_busy(True)
         self.progress.bar.setValue(0)
         self.progress.stats.setText("Speed: —   •   Elapsed: 00:00   •   ETA: —")
-        self.progress.status.setText("Preparing compression…")
+        self.progress.status.setText("Preparing conversion…" if options.mode == "Conversion" else "Preparing compression…")
         self.open_output.hide()
         self.job.start()
 
@@ -196,7 +225,7 @@ class MainWindow(QMainWindow):
             self.close()
 
     def set_busy(self, busy):
-        for widget in (self.drop, self.settings, self.folder, self.browse):
+        for widget in (self.drop, self.operation, self.settings, self.conversion, self.folder, self.browse):
             widget.setEnabled(not busy)
         self.start.setEnabled(not busy and self.media is not None)
         self.cancel.setEnabled(busy)
@@ -217,7 +246,9 @@ class MainWindow(QMainWindow):
         self.progress.bar.setValue(100)
         saved = (1 - result.size / result.original_size) * 100
         saving = f"Space saved: {saved:.1f}%" if saved >= 0 else f"Output is {-saved:.1f}% larger. Try Small File or Target File Size."
-        self.progress.status.setText(f"Complete — {result.path.name}\nOriginal: {format_size(result.original_size)}  •  Compressed: {format_size(result.size)}\n{saving}\nSaved to: {result.path}")
+        if result.operation == "conversion":
+            saving = "Conversion complete. File size depends on the format and codecs."
+        self.progress.status.setText(f"Complete — {result.path.name}\nOriginal: {format_size(result.original_size)}  •  Output: {format_size(result.size)}\n{saving}\nSaved to: {result.path}")
         self.progress.stats.setText(f"Encoding time: {format_time(result.elapsed)}  •  Encoder: {result.encoder}")
 
     def reveal_output(self):

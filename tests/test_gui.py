@@ -81,6 +81,41 @@ class GuiTests(unittest.TestCase):
         self.assertFalse(self.window.errors)
         self.assertFalse(list(self.root.glob(".compressly-*")))
 
+    def test_conversion_mode_and_mov_output(self):
+        self.window.operation.setCurrentText("Convert")
+        self.window.conversion.format.setCurrentIndex(self.window.conversion.format.findData("mov"))
+        self.assertTrue(self.window.conversion.isVisible())
+        self.assertFalse(self.window.settings.isVisible())
+        self.assertEqual(self.window.start.text(), "Convert Video")
+        self.assertIn("copy original", self.window.conversion.plan.text())
+        self.window.conversion.method.setCurrentText("Re-encode")
+        self.assertIn("re-encode (libx264)", self.window.conversion.plan.text())
+        self.window.conversion.method.setCurrentText("Auto")
+        self.window.start.click()
+        self.assertFalse(self.window.operation.isEnabled())
+        self.assertFalse(self.window.conversion.isEnabled())
+        self.wait_for(lambda: self.window.job is None)
+        self.assertFalse(self.window.errors)
+        self.assertEqual(self.window.last_output.suffix, ".mov")
+        self.assertIn("Conversion complete", self.window.progress.status.text())
+        self.assertTrue(self.window.operation.isEnabled())
+        self.window.operation.setCurrentText("Compress")
+        self.assertTrue(self.window.settings.isVisible())
+        self.assertEqual(self.window.start.text(), "Compress Video")
+
+    def test_unlisted_extension_is_probed_and_subtitle_option_resets(self):
+        import shutil
+        unusual = self.root / "video.unlisted"
+        shutil.copyfile(self.source, unusual)
+        self.window.drop.accept_path(str(unusual))
+        self.wait_for(lambda: self.window.task is None and self.window.media is not None)
+        self.assertEqual(self.window.media.path, unusual)
+        box = self.window.conversion.format
+        box.setCurrentIndex(box.findData("mkv"))
+        self.window.conversion.subtitles.setChecked(True)
+        box.setCurrentIndex(box.findData("mp4"))
+        self.assertFalse(self.window.conversion.options().keep_subtitles)
+
 
 if __name__ == "__main__":
     unittest.main()

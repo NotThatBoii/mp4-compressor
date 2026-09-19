@@ -25,5 +25,5 @@ class CompressionWorker(QThread):
         except Cancelled:
             self.cancelled.emit()
         except Exception as error:
-            logging.exception("Compression failed")
-            self.error.emit(str(error) if isinstance(error, ValueError) else "Compression failed. Check output folder permissions and free disk space. Details are in logs/compressly.log.")
+            logging.exception("Video processing failed")
+            self.error.emit(str(error) if isinstance(error, ValueError) else "Video processing failed. Check output folder permissions and free disk space. Details are in logs/compressly.log.")

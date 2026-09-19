@@ -3,7 +3,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QVBoxLayout, QFileDialog
 
-SUPPORTED = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
+SUPPORTED = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".ts", ".mts", ".m2ts", ".3gp", ".3g2", ".vob", ".ogv", ".mxf", ".f4v", ".asf"}
 
 
 class DropZone(QFrame):
@@ -18,7 +18,7 @@ class DropZone(QFrame):
         title = QLabel("Drop your video here")
         title.setObjectName("dropTitle")
         title.setAlignment(Qt.AlignCenter)
-        hint = QLabel("MP4, MKV, MOV, AVI, WebM or M4V  •  One video at a time")
+        hint = QLabel("MP4, MOV, MKV, AVI, WebM and more  •  One video at a time")
         hint.setAlignment(Qt.AlignCenter)
         hint.setObjectName("muted")
         button = QPushButton("Select Video")
@@ -28,14 +28,15 @@ class DropZone(QFrame):
         layout.addWidget(button, alignment=Qt.AlignCenter)
 
     def choose(self):
-        name, _ = QFileDialog.getOpenFileName(self, "Select video", "", "Videos (*.mp4 *.mkv *.mov *.avi *.webm *.m4v)")
+        patterns = " ".join("*" + extension for extension in sorted(SUPPORTED))
+        name, _ = QFileDialog.getOpenFileName(self, "Select video", "", f"Videos ({patterns});;All files (*)")
         if name:
             self.accept_path(name)
 
     def accept_path(self, name):
         path = Path(name)
-        if not path.is_file() or path.suffix.lower() not in SUPPORTED:
-            self.rejected.emit("Choose a supported video file on your computer.")
+        if not path.is_file():
+            self.rejected.emit("Choose a video file on your computer.")
             return
         self.selected.emit(str(path.resolve()))
 
@@ -45,5 +46,6 @@ class DropZone(QFrame):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        if self.isEnabled():
-            self.accept_path(event.mimeData().urls()[0].toLocalFile())
+        urls = event.mimeData().urls()
+        if self.isEnabled() and len(urls) == 1 and urls[0].isLocalFile():
+            self.accept_path(urls[0].toLocalFile())
