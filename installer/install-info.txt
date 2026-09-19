@@ -6,11 +6,12 @@ Project: https://github.com/NotThatBoii/mp4-compressor
 Copyright (c) 2026 NotThatBoii. Compressly's original code is MIT-licensed.
 Bundled components retain their own licenses; see THIRD_PARTY.md and the licenses folder.
 
-Compress videos on Windows 10/11 (64-bit Intel or AMD laptops).
+Compress and convert videos on Windows 10/11 (64-bit Intel or AMD laptops).
+Convert to MP4, MOV, MKV, WebM, AVI, WMV, FLV, MPG, TS, M4V or 3GP.
 
 Python, Qt and FFmpeg are included. No additional downloads or software setup are required to use the installed app.
 
-Setup installs for your Windows account and adds a Start menu shortcut. You can remove Compressly later through Windows Settings > Apps. Your original videos and compressed output files are not deleted when you uninstall.
+Setup installs for your Windows account and adds a Start menu shortcut. You can remove Compressly later through Windows Settings > Apps. Your original videos and output files are not deleted when you uninstall.
 
 Close Compressly before installing an update. This installer will not forcibly terminate an active compression job.
 

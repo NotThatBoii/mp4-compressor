@@ -2,17 +2,17 @@
 
 Created by [NotThatBoii](https://github.com/NotThatBoii) · [MIT License](LICENSE)
 
-A Windows 10/11 desktop video compressor built with Python, PySide6 and real FFmpeg processing. Drop a video, choose a quality preset or target size, and save a smaller copy. The original stays untouched.
+A Windows 10/11 desktop video compressor and converter built with Python, PySide6 and real FFmpeg processing. Compress with a quality preset or target size, or convert between video formats. The original stays untouched.
 
 ## Download and install
 
-**[Download the Windows installer](https://github.com/NotThatBoii/mp4-compressor/releases/latest)** — choose `Compressly-0.1.1-Setup-x64.exe` under Assets.
+**[Download the Windows installer](https://github.com/NotThatBoii/mp4-compressor/releases/latest)** — choose `Compressly-0.2.0-Setup-x64.exe` under Assets.
 
 Run the downloaded EXE and follow Setup. Python and FFmpeg are included, and the installed app works offline. It installs for your Windows account without an administrator password, adds a Start menu entry, and optionally creates a desktop shortcut. Uninstall through **Windows Settings → Apps → Compressly**. Your video files are preserved.
 
 Requires **64-bit Intel/AMD Windows 10 version 1809 or newer, or Windows 11**. ARM and 32-bit Windows are not validated. GPU drivers are optional: unsupported hardware falls back to CPU.
 
-The first installer is unsigned, so Windows may display SmartScreen or Unknown Publisher. Download only from this repository's Releases page. Each release includes `SHA256SUMS.txt`; compare it with `Get-FileHash .\Compressly-0.1.1-Setup-x64.exe -Algorithm SHA256` if you want to verify the file.
+The first installer is unsigned, so Windows may display SmartScreen or Unknown Publisher. Download only from this repository's Releases page. Each release includes `SHA256SUMS.txt`; compare it with `Get-FileHash .\Compressly-0.2.0-Setup-x64.exe -Algorithm SHA256` if you want to verify the file.
 
 ## Features
 
@@ -24,7 +24,27 @@ The first installer is unsigned, so Windows may display SmartScreen or Unknown P
 - Metadata removal, subtitle preservation, progress percentage, encoding FPS, speed, elapsed time, ETA, encoded size and cancellation.
 - Unique output names, temporary-file cleanup, final size and space saved, and an Open Output Folder button.
 
-Supported input extensions: `.mp4`, `.mkv`, `.mov`, `.avi`, `.webm`, `.m4v`. Actual decoding support depends on your FFmpeg build.
+The file picker includes MP4, MOV, MKV, AVI, WebM, M4V, WMV, FLV, MPG/MPEG, TS/MTS/M2TS, 3GP/3G2, VOB, OGV, MXF, F4V and ASF. **All files** and drag-and-drop also accept other extensions for FFmpeg to inspect. Actual support depends on the streams and available decoders; every video format is not guaranteed.
+
+## Convert video formats
+
+1. Select or drop a video, then switch **Compress** to **Convert**.
+2. Choose an output format and method. The app shows the expected video/audio handling.
+3. Choose the output folder and click **Convert Video**.
+
+**Output formats:** MP4, MOV, MKV, WebM, AVI, WMV, FLV, MPG, TS, M4V and 3GP. MP4 → MOV and MOV → MP4 are supported. Files use names such as `video_converted.mov`; repeated conversions get unique names.
+
+| Method | Behavior |
+| --- | --- |
+| Auto | Copies compatible video/audio streams without re-encoding and encodes incompatible streams. If copying fails, retries once by re-encoding both selected streams. |
+| Re-encode | Always encodes with codecs selected for the output container. Quality can decrease and size can increase. |
+| Stream copy only | Copies selected video/audio streams without quality loss. Rejects incompatible combinations; never silently switches to re-encoding. |
+
+Conversion does not target a smaller file. Use **Compress** for quality presets, resizing, hardware acceleration or a target size. Conversion re-encoding uses CPU: H.264/AAC for MP4, MOV, MKV, TS, M4V and 3GP; VP9/Opus for WebM; MPEG-4/MP3 for AVI; WMV2/WMA2 for WMV; FLV1/MP3 for FLV; MPEG-2/MP2 for MPG. Required encoders are included in the Windows installer.
+
+Only the first non-cover-art video and first audio track are selected. **Keep audio** can be turned off. Re-encoded audio is 128 kbps stereo; copied audio retains its original channels. Re-encoded video uses even dimensions and 8-bit SDR; MPG and WMV encoding uses 30 FPS. HDR sources remain unsupported. Container support does not guarantee compatibility with every old device or player.
+
+Metadata and chapters are retained only where the destination supports them. Subtitles are removed by default; choose MKV to preserve subtitles and font attachments. MP4 timed text becomes SRT, potentially losing styling, and requires Auto or Re-encode. Damaged, encrypted or unusual streams may fail with a readable error.
 
 ## License
 
@@ -137,7 +157,7 @@ $env:COMPRESSLY_INTEGRATION = "1"
 Remove-Item Env:COMPRESSLY_INTEGRATION
 ```
 
-The integration suite creates a short test video, runs actual compression, checks two-pass size tolerance, verifies resizing/audio/metadata/subtitles, tests cancellation cleanup, and checks the original's SHA-256 hash. AV1 is skipped if the build lacks SVT-AV1. These tests do not represent an exhaustive multi-GB or multi-GPU benchmark.
+The integration suite generates short videos, tests all 11 output formats with Auto and Re-encode, decodes the outputs, checks a lossless MP4/MOV round trip, and exercises the Qt conversion controls. It also checks compression, two-pass size tolerance, resizing/audio/metadata/subtitles, cancellation cleanup, and unchanged source hashes. AV1 is skipped if the build lacks SVT-AV1. These tests do not represent an exhaustive multi-GB or multi-GPU benchmark.
 
 ## Build a Windows executable
 
@@ -174,7 +194,7 @@ Install [Inno Setup 6](https://jrsoftware.org/isdl.php), create `.venv` as above
 .\scripts\build-installer.ps1
 ```
 
-The FFmpeg download uses a pinned version and SHA-256 check. The output is `dist/installer/Compressly-0.1.1-Setup-x64.exe`, with `SHA256SUMS.txt`. Unlike the portable EXE, this **single Setup EXE** contains the complete application and its dependencies. Bundled license texts and notices are installed with the app.
+The FFmpeg download uses a pinned version and SHA-256 check. The output is `dist/installer/Compressly-0.2.0-Setup-x64.exe`, with `SHA256SUMS.txt`. Unlike the portable EXE, this **single Setup EXE** contains the complete application and its dependencies. Bundled license texts and notices are installed with the app.
 
 Pass `-Compiler 'C:\path\to\ISCC.exe'` for a custom compiler location or `-SkipAppBuild` to package an already-built app. Close running Compressly instances before updating; Setup does not force-stop compression jobs.
 

@@ -1,4 +1,15 @@
-# MVP validation — 2026-09-16
+# Validation
+
+## Converter 0.2.0 — 2026-09-19
+
+- Local suite: 30 tests, 29 passed and 1 skipped (unavailable CPU SVT-AV1).
+- All 11 output formats passed real Auto and Re-encode conversions, followed by decoding the resulting files and checking duration, dimensions and audio presence.
+- MP4 → MOV → MP4 with Stream copy only retained identical decoded video frame hashes.
+- Verified audio/metadata removal, MP4 timed-text to MKV SRT conversion, rejection of incompatible strict-copy requests, fallback after copy failure, unique output names, unchanged source hashes, and cleanup after cancelling both copying and re-encoding.
+- Qt tests exercised switching modes, changing the conversion method, converting to MOV, resetting unsupported subtitle settings, and probing a video with an unlisted extension. The conversion screen was rendered and visually inspected.
+- These are short generated SDR clips, not a guarantee for every input codec, container variant, camera or player.
+
+## Original MVP — 2026-09-16
 
 Test environment: Windows 11, CPython 3.12.14, PySide6 6.11.2, FFmpeg 9.0.1 essentials build, PyInstaller 6.22.3.
 
